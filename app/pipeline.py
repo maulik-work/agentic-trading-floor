@@ -60,7 +60,7 @@ def read_portfolio(profile_id: str = DEFAULT_PROFILE_ID) -> dict:
     """Read a specific profile's portfolio state directly from disk (no agent involved)."""
     path = profile_file_path(profile_id)
     if not os.path.exists(path):
-        return {"cash": 100_000.0, "positions": {}, "trade_log": []}
+        return {"cash": 500_000.0, "positions": {}, "trade_log": []}
     with open(path, "r") as f:
         return json.load(f)
 
