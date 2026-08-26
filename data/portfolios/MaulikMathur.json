@@ -1,0 +1,14 @@
+{
+  "cash": 100000.0,
+  "positions": {},
+  "trade_log": [
+    {
+      "timestamp": "2026-08-26T10:55:12.552740+00:00",
+      "symbol": "OLAELEC.NS",
+      "action": "hold",
+      "quantity": 0,
+      "price": 38.0,
+      "reasoning": "Neutral technical outlook and weak fundamentals suggest no trade at this time."
+    }
+  ]
+}

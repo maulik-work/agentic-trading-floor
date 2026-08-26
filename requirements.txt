@@ -1,0 +1,7 @@
+openai-agents
+mcp
+yfinance
+feedparser
+python-dotenv
+streamlit
+pandas
