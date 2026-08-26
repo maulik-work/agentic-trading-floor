@@ -192,6 +192,20 @@ if run_clicked and symbol:
         st.markdown(result["risk"])
 
     with tab3:
+        # Pull the reasoning straight from the trade log entry the agent
+        # just wrote - this is guaranteed to exist (record_trade requires
+        # it), unlike relying on the model's free-text response alone.
+        updated_portfolio = read_portfolio(profile_id)
+        latest_decision = updated_portfolio["trade_log"][-1] if updated_portfolio["trade_log"] else None
+
+        if latest_decision and latest_decision["symbol"] == result["symbol"]:
+            action_icon = {"buy": "🟢", "sell": "🔴", "hold": "⚪"}.get(latest_decision["action"], "")
+            st.markdown(f"### {action_icon} {latest_decision['action'].upper()} — Why?")
+            st.info(latest_decision["reasoning"])
+            if latest_decision["action"] != "hold":
+                st.caption(f"Quantity: {latest_decision['quantity']} shares · Price: ₹{latest_decision['price']}")
+            st.divider()
+
         st.markdown(result["trader"])
         if "DECISION: hold" in result["trader"]:
             st.info("No trade was executed - decision was to hold.")
