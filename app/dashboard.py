@@ -25,7 +25,7 @@ except Exception:
     pass  # no secrets.toml - fine locally, GROQ_API_KEY should come from .env instead
 
 import pandas as pd
-from pipeline import run_pipeline_stream, read_portfolio, profile_file_path
+from pipeline import run_pipeline_stream, read_portfolio, profile_file_path, sanitize_profile_id
 
 st.set_page_config(page_title="Agentic Trading Floor", page_icon="📈", layout="wide")
 
@@ -62,22 +62,54 @@ work.
 """
     )
 
-# ---- Profile selection: each name gets its own separate portfolio.
-# Reflected in the URL (?profile=...) so a person can bookmark/share their own link.
-default_profile = st.query_params.get("profile", "default")
+# ---- Profile gate ----
+# A fresh visit (no ?profile= in the URL) must pick a name before seeing
+# the app. A link that already has ?profile= (e.g. a bookmarked or shared
+# link) skips straight in - that's what makes "send someone their own
+# link" work smoothly.
+if "profile_confirmed" not in st.session_state:
+    st.session_state.profile_confirmed = "profile" in st.query_params
 
-# ---- Sidebar: profile picker + portfolio snapshot ----
+if not st.session_state.profile_confirmed:
+    st.subheader("Pick a profile name to get started")
+    st.caption(
+        "This keeps your paper-trading portfolio separate from anyone else "
+        "using this link - like a username. There's no password though, so "
+        "don't use a name a stranger could easily guess if you want it kept "
+        "just to yourself."
+    )
+    entered = st.text_input("Profile name", placeholder="e.g. dad, maulik, guest42")
+
+    if st.button("Check availability"):
+        if entered.strip():
+            st.session_state.checked_name = entered
+            st.session_state.checked_exists = os.path.exists(profile_file_path(entered))
+        else:
+            st.warning("Type a name first.")
+
+    if st.session_state.get("checked_name") == entered and entered.strip():
+        clean_name = sanitize_profile_id(entered)
+        if st.session_state.checked_exists:
+            st.info(f"👋 Welcome back — **{clean_name}** already has a portfolio. Continuing will load it.")
+        else:
+            st.success(f"✅ **{clean_name}** is free — a new ₹1,00,000 portfolio will be created for it.")
+        if st.button("Continue →", type="primary"):
+            st.query_params["profile"] = clean_name
+            st.session_state.profile_confirmed = True
+            st.rerun()
+
+    st.stop()  # don't render the rest of the app until a profile is confirmed
+
+profile_id = sanitize_profile_id(st.query_params.get("profile", "default"))
+
+# ---- Sidebar: current profile + portfolio snapshot ----
 with st.sidebar:
     st.header("Your Profile")
-    profile_id = st.text_input(
-        "Profile name",
-        value=default_profile,
-        help="Use the same name each time to keep your own separate portfolio. "
-        "Different names never share data.",
-    )
-    if not profile_id:
-        profile_id = "default"
-    st.query_params["profile"] = profile_id
+    st.markdown(f"**{profile_id}**")
+    if st.button("Switch profile"):
+        st.session_state.profile_confirmed = False
+        st.query_params.clear()
+        st.rerun()
 
     st.divider()
     st.header("Portfolio")
