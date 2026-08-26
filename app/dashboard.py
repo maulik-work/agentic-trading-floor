@@ -30,10 +30,37 @@ from pipeline import run_pipeline_stream, read_portfolio, profile_file_path
 st.set_page_config(page_title="Agentic Trading Floor", page_icon="📈", layout="wide")
 
 st.title("📈 Agentic Trading Floor")
-st.caption(
-    "A 3-agent system (Research → Risk → Trader) built with the OpenAI Agents SDK "
-    "and MCP. Paper trading only - no real money."
-)
+
+with st.expander("👋 What is this?", expanded=True):
+    st.markdown(
+        """
+Hey, I'm Maulik — I built this to solve something that bugged me: if you
+just ask an AI "should I buy this stock?", it gives you the same generic
+answer it'd give anyone. But whether a trade actually makes sense
+depends on *your* situation — buying 10 shares is nothing if it's 3% of
+your portfolio, but reckless if it's 40%.
+
+So instead of one AI trying to do everything, I built three that each
+handle one part of the job, the way a real trading desk splits up work:
+
+- **Research** reads the stock's recent price action and news, and
+  writes up a plain-English take — no numbers-speak.
+- **Risk** checks whatever's proposed against your actual portfolio and
+  hard position limits. This one's a bit different from the others: I
+  don't let the AI do this math itself — it's real code doing the
+  arithmetic, because I found LLMs will confidently get percentages
+  wrong. The AI's job here is just to read the tool's answer back to you.
+- **Trader** takes both and makes the final call — buy, sell, or hold —
+  and every decision gets logged, even the holds, so there's a record
+  of what it considered.
+
+It's running on a free hosted model (Groq), so this costs nothing to
+run, and it trades with fake money only — nothing here touches anything
+real. Pick a profile name below (so your portfolio stays separate from
+anyone else using this link), type in an NSE stock symbol, and watch it
+work.
+"""
+    )
 
 # ---- Profile selection: each name gets its own separate portfolio.
 # Reflected in the URL (?profile=...) so a person can bookmark/share their own link.
