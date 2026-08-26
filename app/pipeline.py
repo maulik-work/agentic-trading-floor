@@ -134,6 +134,7 @@ async def run_pipeline_stream(symbol: str, trade_qty: int = DEFAULT_TRADE_QTY, p
         research_result = await Runner.run(
             research_agent,
             f"Research the stock {symbol} and give me your analysis.",
+            max_turns=20,
         )
         research_summary = research_result.final_output
         yield {"event": "stage_done", "stage": "research", "output": research_summary}
@@ -144,6 +145,7 @@ async def run_pipeline_stream(symbol: str, trade_qty: int = DEFAULT_TRADE_QTY, p
             f"Evaluate a proposed trade: BUY {trade_qty} shares of {symbol}. "
             f"Fetch the current price yourself, then check it against portfolio and risk rules. "
             f"State the exact approved quantity clearly in your response.",
+            max_turns=15,
         )
         risk_assessment = risk_result.final_output
         yield {"event": "stage_done", "stage": "risk", "output": risk_assessment}
@@ -155,6 +157,7 @@ async def run_pipeline_stream(symbol: str, trade_qty: int = DEFAULT_TRADE_QTY, p
             f"Risk assessment:\n{risk_assessment}\n\n"
             f"Make your final trading decision for {symbol}. "
             f"Use the exact quantity from the risk assessment - do not change it.",
+            max_turns=15,
         )
         trader_decision = trader_result.final_output
         yield {"event": "stage_done", "stage": "trader", "output": trader_decision}
