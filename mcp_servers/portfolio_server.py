@@ -31,7 +31,7 @@ def _safe_profile_id(raw: str) -> str:
 
 PORTFOLIO_ID = _safe_profile_id(os.environ.get("PORTFOLIO_ID", "default"))
 STATE_FILE = os.path.join(DATA_DIR, f"{PORTFOLIO_ID}.json")
-STARTING_CASH = 100_000.0
+STARTING_CASH = 500_000.0
 MAX_TRADE_PCT = 0.05     # no single trade may exceed 5% of total portfolio value
 MAX_POSITION_PCT = 0.15  # no single position may exceed 15% of total portfolio value
 
