@@ -27,7 +27,7 @@ from dotenv import load_dotenv
 load_dotenv()  # no-op if there's no .env file (e.g. on Streamlit Cloud)
 
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
-GROQ_MODEL_NAME = "openai/gpt-oss-120b"
+GROQ_MODEL_NAME = "qwen/qwen3.6-27b"
 
 if not GROQ_API_KEY:
     raise RuntimeError(
