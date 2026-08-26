@@ -205,5 +205,99 @@ def get_fundamentals(symbol: str) -> dict:
     return result
 
 
+@mcp.tool()
+def get_technical_indicators(symbol: str) -> dict:
+    """
+    Get real technical indicators: 14-day RSI (Relative Strength Index)
+    and volume trend (recent 5-day average volume vs 3-month average).
+    RSI above 70 is generally considered overbought (may be due for a
+    pullback), below 30 oversold (may be due for a bounce). This is
+    genuine momentum analysis, distinct from moving averages (trend)
+    or fundamentals (business health).
+
+    Args:
+        symbol: Stock ticker, e.g. "AAPL".
+    """
+    try:
+        ticker = yf.Ticker(symbol)
+        data = ticker.history(period="3mo", interval="1d")
+    except Exception as e:
+        return {"symbol": symbol, "error": f"Failed to fetch data: {e}"}
+
+    if data.empty or len(data) < 15:
+        return {"symbol": symbol, "error": "Not enough historical data for RSI (need at least 15 trading days)."}
+
+    close = data["Close"]
+    delta = close.diff()
+    gain = delta.clip(lower=0)
+    loss = -delta.clip(upper=0)
+    avg_gain = gain.rolling(window=14).mean()
+    avg_loss = loss.rolling(window=14).mean()
+    rs = avg_gain / avg_loss
+    rsi = 100 - (100 / (1 + rs))
+
+    latest_rsi = float(rsi.iloc[-1]) if rsi.iloc[-1] == rsi.iloc[-1] else None  # NaN check
+
+    volume = data["Volume"]
+    recent_avg_volume = float(volume.tail(5).mean())
+    baseline_avg_volume = float(volume.mean())
+    volume_ratio = recent_avg_volume / baseline_avg_volume if baseline_avg_volume > 0 else None
+
+    result = {"symbol": symbol}
+
+    if latest_rsi is not None:
+        result["rsi_14"] = round(latest_rsi, 1)
+        if latest_rsi >= 70:
+            result["rsi_signal"] = "overbought (RSI >= 70)"
+        elif latest_rsi <= 30:
+            result["rsi_signal"] = "oversold (RSI <= 30)"
+        else:
+            result["rsi_signal"] = "neutral"
+    else:
+        result["rsi_14"] = "N/A"
+
+    if volume_ratio is not None:
+        result["recent_avg_volume"] = int(recent_avg_volume)
+        result["volume_vs_3mo_avg"] = f"{round(volume_ratio, 2)}x"
+
+    return result
+
+
+@mcp.tool()
+def get_market_comparison(symbol: str, period: str = "1mo") -> dict:
+    """
+    Compare this stock's return over the period against the NIFTY 50
+    index (the broad Indian market benchmark) - whether it's actually
+    out- or under-performing the overall market, not just moving up or
+    down in isolation. A stock can rise 5% and still be a laggard if
+    the whole market rose 10%.
+
+    Args:
+        symbol: Stock ticker, e.g. "RELIANCE.NS".
+        period: Comparison window, e.g. "1mo", "3mo".
+    """
+    try:
+        stock_data = yf.Ticker(symbol).history(period=period, interval="1d")
+        index_data = yf.Ticker("^NSEI").history(period=period, interval="1d")
+    except Exception as e:
+        return {"symbol": symbol, "error": f"Failed to fetch data: {e}"}
+
+    if stock_data.empty or index_data.empty or len(stock_data) < 2 or len(index_data) < 2:
+        return {"symbol": symbol, "error": "Not enough data for comparison."}
+
+    stock_return = (float(stock_data["Close"].iloc[-1]) / float(stock_data["Close"].iloc[0]) - 1) * 100
+    index_return = (float(index_data["Close"].iloc[-1]) / float(index_data["Close"].iloc[0]) - 1) * 100
+    relative_performance = stock_return - index_return
+
+    return {
+        "symbol": symbol,
+        "period": period,
+        "stock_return_pct": round(stock_return, 2),
+        "nifty50_return_pct": round(index_return, 2),
+        "relative_performance_pct": round(relative_performance, 2),
+        "outperforming_market": relative_performance > 0,
+    }
+
+
 if __name__ == "__main__":
     mcp.run(transport="stdio")
