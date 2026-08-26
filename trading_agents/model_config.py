@@ -40,7 +40,7 @@ if not GROQ_API_KEY:
 groq_client = AsyncOpenAI(
     base_url="https://api.groq.com/openai/v1",
     api_key=GROQ_API_KEY,
-    max_retries=6,  # auto-retries on Groq's free-tier rate limits (8K TPM),
+    max_retries=8,  # auto-retries on Groq's free-tier rate limits (8K TPM),
     # honoring the exact wait time Groq's error response specifies, instead
     # of the pipeline just failing on a transient 429.
 )
