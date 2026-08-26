@@ -187,6 +187,47 @@ if run_clicked and symbol:
 
     with tab1:
         st.markdown(result["research"])
+        with st.expander("📊 What data feeds this analysis?"):
+            st.markdown(
+                """
+This isn't a single "ask the AI" call — the agent pulls five real,
+separate pieces of data before writing anything:
+
+**1. Current price** — live, from the exchange.
+
+**2. Moving averages (50-day and 200-day)** — the average closing price
+over the last 50 and 200 trading days. Why this matters: a single
+day's price can jump around for no real reason, but if the price has
+stayed *above* its 200-day average for months, that's a genuine,
+harder-to-fake trend signal. When the 50-day average crosses **below**
+the 200-day average, that's called a **death cross** — a classic
+bearish signal traders watch for. The reverse (50-day crossing above)
+is a **golden cross** — bullish.
+
+**3. Fundamentals** — revenue growth, earnings growth, debt-to-equity,
+and return on equity, pulled from the company's actual reported
+financials, not estimated. This is what separates "the stock went up"
+from "the business is actually doing well" — a stock can rise on hype
+while the underlying numbers are getting worse, which is exactly the
+kind of mismatch this is meant to catch.
+
+**4. Company basics** — sector, market cap, 52-week high/low, for context.
+
+**5. Recent news** — real headlines, pulled live, not the AI's memory
+of old training data.
+
+**What the AI actually does with all this:** synthesize it into
+plain English and a verdict. It doesn't invent any of the five numbers
+above — those come from real tool calls to Yahoo Finance and Google
+News. The AI's job is judgment and writing, not data collection.
+
+**Honest limitation:** this is still a simplified signal compared to
+what a professional analyst uses — no peer/sector comparison, no
+analyst price targets, no options-market sentiment. Good enough to
+demonstrate real technical + fundamental analysis working together,
+not a replacement for real due diligence.
+"""
+            )
 
     with tab2:
         st.markdown(result["risk"])
