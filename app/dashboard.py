@@ -190,7 +190,39 @@ if run_clicked and symbol:
 
     with tab2:
         st.markdown(result["risk"])
+        with st.expander("🧮 How is this calculated?"):
+            st.markdown(
+                """
+This isn't the AI doing mental math — the percentages above come from a
+plain Python function, so they're exact, not estimated.
 
+**Trade size check:**
+trade_value = quantity × price
+trade_% = trade_value / total_portfolio_value
+If `trade_%` is over **5%**, the trade is rejected — a single trade can
+never risk more than 5% of everything you have.
+
+**Position size check** (for buys):
+new_position_value = (shares_already_held + new_quantity) × price
+position_% = new_position_value / total_portfolio_value
+If `position_%` is over **15%**, it's rejected — no single stock can
+ever end up being more than 15% of your total portfolio, even built up
+gradually across several trades.
+
+**Total portfolio value** itself is:
+cash + value of every open position (at current or last-known price)
+
+If a trade is rejected, the system also calculates the largest quantity
+that *would* pass — that's real algebra solving for quantity, not a
+guess.
+
+I built it this way on purpose: I don't trust an AI to get percentages
+right every time — I found it occasionally would confidently state a
+wrong number. So the actual limit-checking is code, not language model
+output. The AI's only job here is to read the result back to you in
+plain English.
+"""
+            )
     with tab3:
         # Pull the reasoning straight from the trade log entry the agent
         # just wrote - this is guaranteed to exist (record_trade requires
