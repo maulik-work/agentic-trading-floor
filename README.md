@@ -36,6 +36,13 @@ execution — not just flagged in a conversation.
 goes through `record_trade`, so there's a full history of what the
 system considered even when it chose not to trade.
 
+**Each person gets their own portfolio:** the dashboard's "Profile
+name" field (reflected in the URL as `?profile=yourname`) selects a
+separate `data/portfolios/<name>.json` file. Different people using the
+same deployed link never see or affect each other's paper trades. The
+same profile name always returns the same portfolio, so bookmarking
+`yourapp.streamlit.app/?profile=yourname` gets you back to your own data.
+
 ## Setup (local)
 
 ```bash
@@ -54,7 +61,7 @@ GROQ_API_KEY=your-groq-key-here
 
 ```bash
 uv run app\main.py OLAELEC       # NSE symbols only, .NS added automatically
-uv run app\main.py RELIANCE
+uv run app\main.py RELIANCE dad  # optional 2nd arg: profile name, keeps a separate portfolio
 ```
 
 ## Run — Dashboard (recommended)
@@ -63,19 +70,20 @@ uv run app\main.py RELIANCE
 uv run streamlit run app\dashboard.py
 ```
 
-Opens a browser tab: enter an NSE symbol, click "Run Analysis", and
-watch live progress as each agent runs, then see Research/Risk/Trader
-output in separate tabs, plus a sidebar showing portfolio cash,
-positions, and recent decisions (including holds).
+Opens a browser tab: pick a profile name (default "default"), enter an
+NSE symbol, click "Run Analysis", and watch live progress as each agent
+runs, then see Research/Risk/Trader output in separate tabs, plus a
+sidebar showing your portfolio's cash, positions, and recent decisions
+(including holds).
 
-Portfolio state persists in `data/portfolio.json` between runs,
-starting with ₹1,00,000 paper cash. Delete that file, or use the
-"Reset Portfolio" button in the sidebar, to start fresh.
+Each profile's portfolio persists in `data/portfolios/<name>.json`
+between runs, starting with ₹1,00,000 paper cash. Use the "Reset
+Portfolio" button in the sidebar to reset just the current profile.
 
 ## Deployment (Streamlit Community Cloud - free, public URL)
 
 1. Push this project to a GitHub repo (the `.gitignore` already excludes
-   `.env`, `data/portfolio.json`, and other local-only files - never
+   `.env`, `data/portfolios/`, and other local-only files - never
    commit your actual API key).
 2. Go to https://share.streamlit.io, sign in with GitHub, click
    "New app", and point it at your repo with `app/dashboard.py` as the
@@ -104,9 +112,12 @@ go to Groq's servers, reasonable for a paper-trading demo project.
 - **No short-selling or leverage logic** — only long positions.
 - **Groq's free tier rate limits** (~30 requests/minute) mean this isn't
   built for heavy concurrent traffic - fine for personal/demo use.
+- **Streamlit Community Cloud's filesystem is ephemeral** - if the app
+  sleeps from inactivity or gets redeployed, all portfolio files reset.
+  Fine for a paper-trading demo; not a durable database.
 
 ## Roadmap ideas
 
 - Loop across a watchlist on a schedule
-- Portfolio value chart over time (from `data/portfolio.json`'s trade log)
+- Portfolio value chart over time (from a profile's trade log)
 - Live Kafka feed as an alternative to yfinance for market data
