@@ -37,7 +37,7 @@ TIMEOUT_SECONDS = 30
 DEFAULT_PROFILE_ID = "default"
 
 
-def _safe_profile_id(raw: str) -> str:
+def sanitize_profile_id(raw: str) -> str:
     """Sanitize a profile id to a safe filename component (alnum, dash, underscore only)."""
     cleaned = re.sub(r"[^a-zA-Z0-9_-]", "", raw or "").strip()
     return cleaned or DEFAULT_PROFILE_ID
@@ -53,7 +53,7 @@ def normalize_nse_symbol(symbol: str) -> str:
 
 def profile_file_path(profile_id: str = DEFAULT_PROFILE_ID) -> str:
     """Path to a specific profile's portfolio JSON file (for callers like a reset button)."""
-    return os.path.join(PORTFOLIOS_DIR, f"{_safe_profile_id(profile_id)}.json")
+    return os.path.join(PORTFOLIOS_DIR, f"{sanitize_profile_id(profile_id)}.json")
 
 
 def read_portfolio(profile_id: str = DEFAULT_PROFILE_ID) -> dict:
@@ -83,7 +83,7 @@ async def run_pipeline_stream(symbol: str, trade_qty: int = DEFAULT_TRADE_QTY, p
         {"event": "complete", "result": {...full dict, same shape as before...}}
     """
     symbol = normalize_nse_symbol(symbol)
-    profile_id = _safe_profile_id(profile_id)
+    profile_id = sanitize_profile_id(profile_id)
     portfolio_env = {"PORTFOLIO_ID": profile_id}
 
     async with (
