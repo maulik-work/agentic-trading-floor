@@ -8,7 +8,7 @@ whether to trade.
 """
 
 from agents import Agent
-from trading_agents.model_config import local_model
+from trading_agents.model_config import local_model, local_model_settings
 
 
 def build_research_agent(market_data_mcp_server, news_mcp_server) -> Agent:
