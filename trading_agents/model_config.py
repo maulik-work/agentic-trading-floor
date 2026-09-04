@@ -75,17 +75,5 @@ local_model_settings = ModelSettings(
     # response can generate, so even a verbose answer can't blow
     # through the per-minute output limit on its own.
     max_tokens=800,
-)        "  - Streamlit Cloud: add it under your app's Settings -> Secrets"
-    )
-
-groq_client = AsyncOpenAI(
-    base_url="https://api.groq.com/openai/v1",
-    api_key=GROQ_API_KEY,
-    max_retries=8,  # auto-retries on Groq's free-tier rate limits (8K TPM),
-    # honoring the exact wait time Groq's error response specifies, instead
-    # of the pipeline just failing on a transient 429.
-)
-local_model = OpenAIChatCompletionsModel(
-    model=GROQ_MODEL_NAME,
-    openai_client=groq_client,
-)
+)     
+ 
