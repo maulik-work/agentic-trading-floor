@@ -15,6 +15,7 @@ def build_research_agent(market_data_mcp_server, news_mcp_server) -> Agent:
     return Agent(
         name="Research Agent",
         model=local_model,
+        model_settings=local_model_settings,
         instructions="""
 You are a market research analyst. Given a stock symbol, use your tools to:
 1. Get the current price
