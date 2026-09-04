@@ -1,123 +1,55 @@
-# Agentic Trading Floor (v3 — deployed)
+# Agentic Trading Floor
 
-A multi-agent system that researches an NSE stock (price + news), checks
-a proposed trade against portfolio risk rules, and executes a paper
-trade — built with the OpenAI Agents SDK and MCP, running on Groq's
-free hosted LLM API, deployable for free on Streamlit Community Cloud.
+A multi-agent stock research and paper-trading system for NSE stocks, built with the OpenAI Agents SDK and MCP, deployed publicly on Streamlit Community Cloud.
 
-## Architecture
+**Live demo:** agentic-trading-floor-maulik.streamlit.app
+**Stack:** Python, OpenAI Agents SDK, MCP, Groq, Streamlit, yFinance
 
-```
-Research Agent ──uses──> market-data (full: price/history/company info)
-     │                   news (headlines)
-     │ summary
-     ▼
-Risk Agent ──uses──> market-data-price-only (get_current_price only)
-     │                portfolio-readonly (get_portfolio, get_position,
-     │                                    check_trade_risk)
-     │ approval + exact quantity
-     ▼
-Trader Agent ──uses──> portfolio-trade (record_trade ONLY - buy/sell/hold)
-```
+## Why I built this
 
-**Why each agent gets a different, narrow slice of tools:** models get
-noticeably less reliable at producing correctly-structured tool calls
-as the number of available tools grows. Giving each agent only what it
-needs — not just for security, but for raw reliability — fixed several
-real bugs during development.
+If you just ask an LLM "should I buy this stock," it gives you generic advice — the same answer no matter who's asking, because it has no idea what your actual portfolio looks like. But the right call really depends on that. Buying 10 shares is fine if it's 3% of your holdings, reckless if it's 40%. A single LLM call also has no access to real, current data, and — this is the part that actually shaped the whole design — I found LLMs are genuinely unreliable at doing precise arithmetic, even when they sound completely confident about it.
 
-**Why `record_trade` re-checks risk itself:** an agent's stated approval
-is not a security boundary. `record_trade` independently re-runs
-`check_trade_risk` before executing any buy, so even if an agent
-proposes a bad quantity, the trade is rejected at the actual point of
-execution — not just flagged in a conversation.
+So instead of one AI trying to do everything, I split the problem into three agents that each do one job, roughly the way a real trading desk splits up work:
 
-**Hold decisions are logged too:** every decision (buy, sell, or hold)
-goes through `record_trade`, so there's a full history of what the
-system considered even when it chose not to trade.
+- **Research** pulls live price data, technical indicators (RSI, moving averages, golden/death cross), company fundamentals, and news, and writes up a plain-English read on the stock.
+- **Risk** checks whatever's proposed against my actual portfolio — 5% max per trade, 15% max per position. The risk math itself isn't done by the LLM at all, it's a dedicated tool that does real arithmetic, because I didn't trust the model to get percentages right every time.
+- **Trader** takes both and makes the final call — buy, sell, or hold — and every decision gets logged with its reasoning, even the holds.
 
-**Each person gets their own portfolio:** the dashboard's "Profile
-name" field (reflected in the URL as `?profile=yourname`) selects a
-separate `data/portfolios/<name>.json` file. Different people using the
-same deployed link never see or affect each other's paper trades. The
-same profile name always returns the same portfolio, so bookmarking
-`yourapp.streamlit.app/?profile=yourname` gets you back to your own data.
+It's all fake money. Nothing here touches anything real.
 
-## Setup (local)
+## How the agents actually talk to each other and their tools
 
-```bash
-uv init --python 3.12
-uv add openai-agents mcp yfinance feedparser python-dotenv streamlit pandas
-```
+Each agent connects to its tools over MCP (Model Context Protocol) instead of just calling functions directly. I have three MCP servers — `market_data_server.py`, `news_server.py`, and `portfolio_server.py` — each running as its own subprocess.
 
-Get a free Groq API key (no credit card): https://console.groq.com/keys
+The part I think is actually interesting here: `portfolio_server.py` gets launched **twice**, as two separate connections with different tool restrictions. Risk gets a read-only connection (it can check the portfolio and run the risk calculation, but can't touch anything). Trader gets a connection that only exposes one tool — `record_trade`. Same underlying code, two genuinely different permission levels, because MCP separates the client (the connection) from the server (the actual code).
 
-Create a `.env` file in the project root:
-```
-GROQ_API_KEY=your-groq-key-here
-```
+I didn't originally plan this as a security thing. I found it because I kept hitting a bug where the model would leak a tool call out as garbled text instead of actually calling it — and it got worse the more tools an agent had access to. Cutting each agent down to only the tools it strictly needs fixed that bug and, as a side effect, meant no agent has more access than its job actually requires.
 
-## Run — CLI
+## The bug I'm most glad I caught
 
-```bash
-uv run app\main.py OLAELEC       # NSE symbols only, .NS added automatically
-uv run app\main.py RELIANCE dad  # optional 2nd arg: profile name, keeps a separate portfolio
-```
+At one point, Risk would approve a trade of, say, 10 shares — but Trader would sometimes execute 100 instead. It wasn't reading the approved number carefully, it was just generating a plausible-looking one. In a system that's supposedly enforcing risk limits, that's a real problem, not a cosmetic one.
 
-## Run — Dashboard (recommended)
+I fixed the prompt (explicit numbered steps, "use the exact quantity, never invent your own"), but I didn't stop there, because I don't think a prompt fix alone is a real fix. I made the actual trade-execution function (`record_trade`) independently re-run the risk check itself, right before touching any money, regardless of what the Trader agent claims was approved. So even if a model slips up again in the future, or I swap in a different model that behaves differently, an oversized trade still can't go through — the safety boundary lives in code, not in hoping the AI behaves.
 
-```bash
-uv run streamlit run app\dashboard.py
-```
+## Why Groq instead of a local model
 
-Opens a browser tab: pick a profile name (default "default"), enter an
-NSE symbol, click "Run Analysis", and watch live progress as each agent
-runs, then see Research/Risk/Trader output in separate tabs, plus a
-sidebar showing your portfolio's cash, positions, and recent decisions
-(including holds).
+I built and tested this on Ollama, running the model on my own machine — free, and fine for development. But Ollama only exists on the machine running it. Once I wanted this to actually be a website someone else could open — not just something on my laptop — that stopped working, since free hosting platforms can't run Ollama for you.
 
-Each profile's portfolio persists in `data/portfolios/<name>.json`
-between runs, starting with ₹1,00,000 paper cash. Use the "Reset
-Portfolio" button in the sidebar to reset just the current profile.
+Groq gives free, hosted access to open models through an API that's built to look like OpenAI's — same client code, I just pointed it at a different URL. That's what let me deploy this for real, on Streamlit Community Cloud, at zero cost.
 
-## Deployment (Streamlit Community Cloud - free, public URL)
+Along the way I also hit a model that Groq deprecated mid-project, and separately, a documented bug in the `gpt-oss` model family where its internal response formatting would leak through as an invalid tool call once my tool list got big enough. Both times the fix wasn't in my code — it was recognizing the error wasn't mine to fix and picking a different model.
 
-1. Push this project to a GitHub repo (the `.gitignore` already excludes
-   `.env`, `data/portfolios/`, and other local-only files - never
-   commit your actual API key).
-2. Go to https://share.streamlit.io, sign in with GitHub, click
-   "New app", and point it at your repo with `app/dashboard.py` as the
-   main file.
-3. In the app's Settings → Secrets, add:
-   ```
-   GROQ_API_KEY = "your-groq-key-here"
-   ```
-4. Deploy. You'll get a permanent `https://<something>.streamlit.app`
-   URL, reachable from any phone or browser, with no laptop needing to
-   stay on.
+## Letting more than one person use it
 
-**Why Groq instead of Ollama for this:** Ollama needs to run on the
-same machine as the code. Free hosting platforms have no way to run it
-for you. Groq's free tier is a genuinely no-cost, OpenAI-compatible
-hosted API (~30 requests/minute), which is exactly enough for personal
-or demo use - the tradeoff is your queries now leave your machine and
-go to Groq's servers, reasonable for a paper-trading demo project.
+Once this was a public link, everyone hitting it would've shared one portfolio by default, which defeats the point. Each profile name now gets its own portfolio file, selected by an environment variable passed to the portfolio subprocess when it launches. It's not real authentication — there's no password, "taken" just means a portfolio already exists under that name — but it's enough for what this actually needs to be: a way for me, my dad, or anyone else with the link to each have their own fake ₹5,00,000 without stepping on each other's trades.
 
-## Known limitations (intentional, for a project at this stage)
+## What this doesn't do
 
-- **Portfolio valuation for held symbols other than the one being traded**
-  uses the last recorded trade price, not a live quote.
-- **Single-run pipeline** — no scheduled/looped execution across a
-  watchlist. Each run evaluates exactly one symbol once.
-- **No short-selling or leverage logic** — only long positions.
-- **Groq's free tier rate limits** (~30 requests/minute) mean this isn't
-  built for heavy concurrent traffic - fine for personal/demo use.
-- **Streamlit Community Cloud's filesystem is ephemeral** - if the app
-  sleeps from inactivity or gets redeployed, all portfolio files reset.
-  Fine for a paper-trading demo; not a durable database.
+- No short selling or leverage — only long positions, and the research signal (5-day-ish price history, a handful of news headlines) is intentionally simple, not something I'd actually trade on
+- No scheduled/looped runs — it's one symbol, one run, on demand
+- Streamlit Community Cloud's free tier has an ephemeral filesystem, so portfolios can reset if the app sleeps or gets redeployed — fine for fake money, not something I'd rely on for anything real
+- Groq's free tier has a real rate limit (~30 requests/minute), which is why I added retry logic — fine for personal use, not built for heavy traffic
 
-## Roadmap ideas
+## What I'd actually add next
 
-- Loop across a watchlist on a schedule
-- Portfolio value chart over time (from a profile's trade log)
-- Live Kafka feed as an alternative to yfinance for market data
+Short selling with proper margin requirements, a scheduled watchlist instead of one symbol at a time, and probably a real database instead of JSON files once the ephemeral-filesystem limitation actually matters.
