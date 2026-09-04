@@ -9,13 +9,14 @@ the call as plain text.
 """
 
 from agents import Agent
-from trading_agents.model_config import local_model
+from trading_agents.model_config import local_model, local_model_settings
 
 
 def build_trader_agent(portfolio_trade_mcp_server) -> Agent:
     return Agent(
         name="Trader Agent",
         model=local_model,
+        model_settings=local_model_settings,
         instructions="""
 You are a trader. You will be given:
 1. A research summary of a stock (price trend, verdict)
