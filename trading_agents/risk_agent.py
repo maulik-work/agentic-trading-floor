@@ -9,13 +9,14 @@ at producing correctly-structured tool calls.
 """
 
 from agents import Agent
-from trading_agents.model_config import local_model
+from trading_agents.model_config import local_model,local_model_settings
 
 
 def build_risk_agent(portfolio_mcp_server, price_only_mcp_server) -> Agent:
     return Agent(
         name="Risk Agent",
         model=local_model,
+        model_settings=local_model_settings,
         instructions="""
 You are a risk manager. Given a proposed trade (symbol, action, quantity):
 
