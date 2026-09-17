@@ -27,12 +27,7 @@ from dotenv import load_dotenv
 load_dotenv()  # no-op if there's no .env file (e.g. on Streamlit Cloud)
 
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
-GROQ_MODEL_NAME = "qwen/qwen3.6-27b"  # not part of the gpt-oss/Harmony family -
-# gpt-oss-120b has a known bug where its internal "commentary" channel
-# tag leaks through as a fake tool name instead of being parsed correctly,
-# especially as tool schemas get larger. Note: Groq lists this as a
-# preview model, not "production" - worth knowing, but the alternative
-# is a production model with a live bug, so this is the better trade.
+GROQ_MODEL_NAME = "openai/gpt-oss-120b" 
 
 if not GROQ_API_KEY:
     raise RuntimeError(
