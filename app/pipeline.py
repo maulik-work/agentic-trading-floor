@@ -15,7 +15,8 @@ import sys
 import os
 import json
 import re
-
+import openai
+import asyncio
 PYTHON_EXECUTABLE = sys.executable
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(REPO_ROOT)
@@ -64,6 +65,40 @@ def read_portfolio(profile_id: str = DEFAULT_PROFILE_ID) -> dict:
     with open(path, "r") as f:
         return json.load(f)
 
+def _is_tool_leak_bug(err: openai.BadRequestError) -> bool:
+    """
+    Detects a known bug in gpt-oss models: their internal reasoning
+    channel occasionally leaks through as an invalid fake tool call
+    (named something like "commentary") instead of a real, correctly
+    formatted tool call. This is a model-output quirk, not a genuinely
+    invalid request - retrying usually succeeds, since the next
+    generation attempt doesn't repeat the same malformed output.
+    """
+    if isinstance(err.body, dict):
+        inner = err.body.get("error", {})
+        if isinstance(inner, dict) and inner.get("code") == "tool_use_failed":
+            return True
+    msg = str(err).lower()
+    return "commentary" in msg or "tool call validation failed" in msg
+
+
+async def _run_with_retry(run_fn, max_attempts: int = 3):
+    """
+    Runs an agent call, automatically retrying if it hits the known
+    tool-leak bug above. Any other error - a real problem - is raised
+    immediately, not retried.
+    """
+    last_error = None
+    for attempt in range(1, max_attempts + 1):
+        try:
+            return await run_fn()
+        except openai.BadRequestError as e:
+            if _is_tool_leak_bug(e) and attempt < max_attempts:
+                last_error = e
+                await asyncio.sleep(1.5 * attempt)
+                continue
+            raise
+    raise last_error
 
 async def run_pipeline_stream(symbol: str, trade_qty: int = DEFAULT_TRADE_QTY, profile_id: str = DEFAULT_PROFILE_ID):
     """
@@ -131,16 +166,16 @@ async def run_pipeline_stream(symbol: str, trade_qty: int = DEFAULT_TRADE_QTY, p
         trader_agent = build_trader_agent(portfolio_trade_server)
 
         yield {"event": "stage_start", "stage": "research"}
-        research_result = await Runner.run(
-            research_agent,
-            f"Research the stock {symbol} and give me your analysis.",
-            max_turns=20,
-        )
+        research_result = await _run_with_retry(lambda: Runner.run(
+    research_agent,
+    f"Research the stock {symbol} and give me your analysis.",
+    max_turns=20,
+))
         research_summary = research_result.final_output
         yield {"event": "stage_done", "stage": "research", "output": research_summary}
 
         yield {"event": "stage_start", "stage": "risk"}
-        risk_result = await Runner.run(
+        risk_result = await _run_with_retry(lambda: Runner.run(
             risk_agent,
             f"Evaluate a proposed trade: BUY {trade_qty} shares of {symbol}. "
             f"Fetch the current price yourself, then check it against portfolio and risk rules. "
@@ -151,7 +186,7 @@ async def run_pipeline_stream(symbol: str, trade_qty: int = DEFAULT_TRADE_QTY, p
         yield {"event": "stage_done", "stage": "risk", "output": risk_assessment}
 
         yield {"event": "stage_start", "stage": "trader"}
-        trader_result = await Runner.run(
+        trader_result = await _run_with_retry(lambda: Runner.run(
             trader_agent,
             f"Research summary:\n{research_summary}\n\n"
             f"Risk assessment:\n{risk_assessment}\n\n"
