@@ -65,7 +65,7 @@ local_model_settings = ModelSettings(
     # which retrying can't fix. reasoning_effort="none" turns off that
     # internal reasoning trace, since this project needs a direct
     # analytical answer, not step-by-step math/coding reasoning.
-    extra_body={"reasoning_effort": "none"},
+    extra_body={"reasoning_effort": "low"},
     # Second layer of protection: hard-cap how much any single
     # response can generate, so even a verbose answer can't blow
     # through the per-minute output limit on its own.
