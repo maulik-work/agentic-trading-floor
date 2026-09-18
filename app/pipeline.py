@@ -15,12 +15,13 @@ import sys
 import os
 import json
 import re
-import openai
 import asyncio
+
 PYTHON_EXECUTABLE = sys.executable
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(REPO_ROOT)
 
+import openai
 from agents import Runner
 from agents.mcp import MCPServerStdio, create_static_tool_filter
 
@@ -65,6 +66,7 @@ def read_portfolio(profile_id: str = DEFAULT_PROFILE_ID) -> dict:
     with open(path, "r") as f:
         return json.load(f)
 
+
 def _is_tool_leak_bug(err: openai.BadRequestError) -> bool:
     """
     Detects a known bug in gpt-oss models: their internal reasoning
@@ -99,6 +101,7 @@ async def _run_with_retry(run_fn, max_attempts: int = 3):
                 continue
             raise
     raise last_error
+
 
 async def run_pipeline_stream(symbol: str, trade_qty: int = DEFAULT_TRADE_QTY, profile_id: str = DEFAULT_PROFILE_ID):
     """
@@ -167,10 +170,10 @@ async def run_pipeline_stream(symbol: str, trade_qty: int = DEFAULT_TRADE_QTY, p
 
         yield {"event": "stage_start", "stage": "research"}
         research_result = await _run_with_retry(lambda: Runner.run(
-    research_agent,
-    f"Research the stock {symbol} and give me your analysis.",
-    max_turns=20,
-))
+            research_agent,
+            f"Research the stock {symbol} and give me your analysis.",
+            max_turns=20,
+        ))
         research_summary = research_result.final_output
         yield {"event": "stage_done", "stage": "research", "output": research_summary}
 
@@ -181,7 +184,7 @@ async def run_pipeline_stream(symbol: str, trade_qty: int = DEFAULT_TRADE_QTY, p
             f"Fetch the current price yourself, then check it against portfolio and risk rules. "
             f"State the exact approved quantity clearly in your response.",
             max_turns=15,
-        )
+        ))
         risk_assessment = risk_result.final_output
         yield {"event": "stage_done", "stage": "risk", "output": risk_assessment}
 
@@ -193,7 +196,7 @@ async def run_pipeline_stream(symbol: str, trade_qty: int = DEFAULT_TRADE_QTY, p
             f"Make your final trading decision for {symbol}. "
             f"Use the exact quantity from the risk assessment - do not change it.",
             max_turns=15,
-        )
+        ))
         trader_decision = trader_result.final_output
         yield {"event": "stage_done", "stage": "trader", "output": trader_decision}
 
@@ -220,3 +223,4 @@ async def run_pipeline(symbol: str, trade_qty: int = DEFAULT_TRADE_QTY, profile_
         if event["event"] == "complete":
             result = event["result"]
     return result
+    
