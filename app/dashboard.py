@@ -29,7 +29,7 @@ from pipeline import run_pipeline_stream, read_portfolio, profile_file_path, san
 
 st.set_page_config(page_title="Agentic Trading Floor", page_icon="📈", layout="wide")
 
-st.title("📈 Agentic Trading Floor")
+st.title(" Agentic Trading Floor")
 
 with st.expander(" What is this?", expanded=True):
     st.markdown(
