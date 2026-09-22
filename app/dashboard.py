@@ -92,7 +92,7 @@ if not st.session_state.profile_confirmed:
         if st.session_state.checked_exists:
             st.info(f"👋 Welcome back — **{clean_name}** already has a portfolio. Continuing will load it.")
         else:
-            st.success(f"✅ **{clean_name}** is free — a new ₹1,00,000 portfolio will be created for it.")
+            st.success(f"✅ **{clean_name}** is free — a new ₹5,00,000 portfolio will be created for it.")
         if st.button("Continue →", type="primary"):
             st.query_params["profile"] = clean_name
             st.session_state.profile_confirmed = True
