@@ -31,7 +31,7 @@ st.set_page_config(page_title="Agentic Trading Floor", page_icon="📈", layout=
 
 st.title("📈 Agentic Trading Floor")
 
-with st.expander("👋 What is this?", expanded=True):
+with st.expander(" What is this?", expanded=True):
     st.markdown(
         """
 Hey, I'm Maulik — I built this to solve something that bugged me: if you
@@ -90,9 +90,9 @@ if not st.session_state.profile_confirmed:
     if st.session_state.get("checked_name") == entered and entered.strip():
         clean_name = sanitize_profile_id(entered)
         if st.session_state.checked_exists:
-            st.info(f"👋 Welcome back — **{clean_name}** already has a portfolio. Continuing will load it.")
+            st.info(f" Welcome back — **{clean_name}** already has a portfolio. Continuing will load it.")
         else:
-            st.success(f"✅ **{clean_name}** is free — a new ₹5,00,000 portfolio will be created for it.")
+            st.success(f" **{clean_name}** is free — a new ₹5,00,000 portfolio will be created for it.")
         if st.button("Continue →", type="primary"):
             st.query_params["profile"] = clean_name
             st.session_state.profile_confirmed = True
@@ -130,7 +130,7 @@ with st.sidebar:
         st.subheader("Recent Decisions")
         st.caption("Includes trades executed and holds (no trade made).")
         decisions_df = pd.DataFrame(portfolio["trade_log"][-10:][::-1])
-        action_display = {"buy": "🟢 buy", "sell": "🔴 sell", "hold": "⚪ hold"}
+        action_display = {"buy": " buy", "sell": " sell", "hold": " hold"}
         decisions_df["action"] = decisions_df["action"].map(action_display).fillna(decisions_df["action"])
         st.dataframe(
             decisions_df[["timestamp", "symbol", "action", "quantity", "price", "reasoning"]],
@@ -158,9 +158,9 @@ with col2:
     run_clicked = st.button("Run Analysis", type="primary", width="stretch")
 
 STAGE_LABELS = {
-    "research": "🔍 Research agent — analyzing price data and news...",
-    "risk": "⚖️ Risk agent — checking portfolio and position limits...",
-    "trader": "💼 Trader agent — making the final decision...",
+    "research": " Research agent — analyzing price data and news...",
+    "risk": " Risk agent — checking portfolio and position limits...",
+    "trader": " Trader agent — making the final decision...",
 }
 
 if run_clicked and symbol:
@@ -170,7 +170,7 @@ if run_clicked and symbol:
             if event["event"] == "stage_start":
                 status_box.update(label=STAGE_LABELS[event["stage"]], state="running")
             elif event["event"] == "stage_done":
-                st.write(f"✅ {event['stage'].capitalize()} done")
+                st.write(f" {event['stage'].capitalize()} done")
             elif event["event"] == "complete":
                 final_result = event["result"]
         return final_result
@@ -202,7 +202,7 @@ elif run_clicked and not symbol:
 # persist and the sidebar stay in sync.
 if "last_result" in st.session_state:
     result = st.session_state.last_result
-    tab1, tab2, tab3 = st.tabs(["🔍 Research", "⚖️ Risk Check", "💼 Trader Decision"])
+    tab1, tab2, tab3 = st.tabs([" Research", " Risk Check", " Trader Decision"])
 
     with tab1:
         st.markdown(result["research"])
@@ -219,7 +219,7 @@ if "last_result" in st.session_state:
 
 st.divider()
 st.caption(
-    "⚠️ Paper trading demo only. Not financial advice. Research signal is based on "
+    " Paper trading demo only. Not financial advice. Research signal is based on "
     "5-day price history and recent news headlines - intentionally simplified for "
     "this project; see README for details."
         )
