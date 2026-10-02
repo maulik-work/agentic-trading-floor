@@ -43,7 +43,11 @@ CACHE_DIR.mkdir(parents=True, exist_ok=True)
 CACHE_TTL = {
     "get_current_price": 120,
     "get_price_history": 300,
-    "get_company_info": 3600,
+    # Fundamentals change rarely (a company's sector doesn't change
+    # intraday), and ticker.info hits a heavier, separately-rate-limited
+    # Yahoo endpoint than price/history calls - so it's cached much longer
+    # to keep us off it as much as possible.
+    "get_company_info": 21600,  # 6 hours
     "get_technical_indicators": 300,
     "get_market_comparison": 300,
 }
@@ -194,6 +198,28 @@ def get_price_history(symbol: str, period: str = "1mo") -> dict:
         return {"error": str(e)}
 
 
+def _fast_info_fallback(symbol: str) -> dict:
+    """
+    ticker.info hits Yahoo's heavy quoteSummary endpoint and gets
+    rate-limited independently of (and more often than) price/history
+    calls. ticker.fast_info hits a lighter endpoint and survives when
+    .info doesn't - it has no sector/industry/name, but still gives
+    market cap, currency and P/E-adjacent figures, which is better than
+    nothing for the dashboard.
+    """
+    fast = yf.Ticker(symbol).fast_info
+    return {
+        "symbol": symbol,
+        "name": None,
+        "sector": None,
+        "industry": None,
+        "market_cap": safe(fast.get("marketCap") or fast.get("market_cap")),
+        "pe_ratio": None,
+        "currency": safe(fast.get("currency")),
+        "partial": True,  # tells the dashboard this came from the fallback
+    }
+
+
 @mcp.tool()
 def get_company_info(symbol: str) -> dict:
     """
@@ -206,9 +232,6 @@ def get_company_info(symbol: str) -> dict:
         def fetch():
             ticker = yf.Ticker(symbol)
             info = ticker.info
-            if not info or info.get("regularMarketPrice") is None and info.get("currentPrice") is None:
-                # yfinance still returns a sparse dict for bad symbols; guard anyway
-                pass
             return {
                 "symbol": symbol,
                 "name": safe(info.get("longName") or info.get("shortName")),
@@ -220,6 +243,15 @@ def get_company_info(symbol: str) -> dict:
             }
 
         return _with_cache_and_retry("get_company_info", symbol, fetch)
+    except YFRateLimitError:
+        # .info is fully exhausted (retries + no stale cache available).
+        # Try the lighter fast_info endpoint before giving up entirely.
+        try:
+            fallback = _fast_info_fallback(symbol)
+            _write_cache("get_company_info", symbol, fallback)
+            return fallback
+        except Exception as e:
+            return {"error": f"Company info unavailable (rate-limited): {e}"}
     except Exception as e:
         return {"error": str(e)}
 
@@ -314,3 +346,4 @@ def get_market_comparison(symbol: str) -> dict:
 
 if __name__ == "__main__":
     mcp.run()
+  
