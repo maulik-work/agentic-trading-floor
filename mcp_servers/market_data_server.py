@@ -177,20 +177,28 @@ def get_price_history(symbol: str, period: str = "1mo") -> dict:
             hist = ticker.history(period=period)
             if hist.empty:
                 raise ValueError(f"No price history found for {symbol}")
+
+            # Only the last 10 trading days go to the agent as a daily
+            # breakdown - a full month/quarter of day-by-day rows was
+            # blowing past Groq's free-tier per-request token limit (8000
+            # TPM) once every tool started returning real data instead of
+            # error strings. 52w high/low still come from the full period.
+            recent = hist.tail(10)
             records = [
                 {
                     "date": str(idx.date()),
                     "close": round(float(row["Close"]), 2),
                     "volume": int(row["Volume"]) if row["Volume"] == row["Volume"] else 0,
                 }
-                for idx, row in hist.iterrows()
+                for idx, row in recent.iterrows()
             ]
             return {
                 "symbol": symbol,
                 "period": period,
                 "52w_high": round(float(hist["High"].max()), 2),
                 "52w_low": round(float(hist["Low"].min()), 2),
-                "history": records,
+                "recent_days_count": len(records),
+                "recent_history": records,
             }
 
         return _with_cache_and_retry("get_price_history", f"{symbol}:{period}", fetch)
