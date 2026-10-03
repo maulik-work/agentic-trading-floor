@@ -8,14 +8,18 @@ whether to trade.
 """
 
 from agents import Agent
-from trading_agents.model_config import local_model, local_model_settings
+from trading_agents.model_config import local_model, research_model_settings
 
 
 def build_research_agent(market_data_mcp_server, news_mcp_server) -> Agent:
     return Agent(
         name="Research Agent",
         model=local_model,
-        model_settings=local_model_settings,
+        # Research gets its own model_settings (research_model_settings),
+        # separate from Risk/Trader's local_model_settings - see
+        # model_config.py for why: it needs more output headroom than
+        # the other two agents, which each produce one short paragraph.
+        model_settings=research_model_settings,
         instructions="""
 You are a market research analyst. Given a stock symbol, use your tools to:
 1. Get the current price
@@ -57,3 +61,4 @@ sentiment - not price movement alone.
 """,
         mcp_servers=[market_data_mcp_server, news_mcp_server],
     )
+    
