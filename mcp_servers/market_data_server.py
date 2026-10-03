@@ -58,6 +58,16 @@ def _cache_path(tool_name: str, cache_key: str) -> Path:
     return CACHE_DIR / f"{tool_name}_{digest}.json"
 
 
+# A partial/fallback result (e.g. get_company_info's fast_info fallback,
+# flagged with "partial": true) gets a much shorter freshness window than
+# a genuine full success. Otherwise a single rate-limited moment gets
+# locked in as "the answer" for the tool's full TTL (6 hours for company
+# info) even after Yahoo would happily serve the real data again a
+# minute later - the cache shouldn't be more confident in degraded data
+# than it is in real data.
+PARTIAL_RESULT_TTL = 120  # seconds
+
+
 def _read_cache(tool_name: str, cache_key: str, allow_stale: bool = False):
     path = _cache_path(tool_name, cache_key)
     if not path.exists():
@@ -69,9 +79,11 @@ def _read_cache(tool_name: str, cache_key: str, allow_stale: bool = False):
         return None
 
     age = time.time() - payload.get("cached_at", 0)
-    ttl = CACHE_TTL.get(tool_name, 300)
+    data = payload.get("data")
+    is_partial = isinstance(data, dict) and data.get("partial")
+    ttl = PARTIAL_RESULT_TTL if is_partial else CACHE_TTL.get(tool_name, 300)
     if allow_stale or age <= ttl:
-        return payload.get("data")
+        return data
     return None
 
 
@@ -369,3 +381,4 @@ def get_market_comparison(symbol: str) -> dict:
 
 if __name__ == "__main__":
     mcp.run()
+      
