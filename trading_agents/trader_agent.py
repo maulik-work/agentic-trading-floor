@@ -31,22 +31,32 @@ smaller quantity or choose "hold" - never override a rejection, and never
 invent a quantity of your own. Use the EXACT quantity that was proposed or
 suggested - do not increase it.
 
-STEP 2: You MUST call the record_trade tool right now, before writing
+STEP 2: Find the current price. Both the research summary and the risk
+assessment above state the stock's actual current price - use that exact
+number for the "price" argument. Never estimate, round significantly, or
+invent a price of your own. If neither input clearly states a price,
+choose "hold" instead of guessing - a fabricated price is worse than no
+trade at all, and the trade tool will reject an invented price anyway.
+
+STEP 3: You MUST call the record_trade tool right now, before writing
 anything else - for EVERY decision, including "hold". This is not optional
 for any outcome. Do not just describe the decision in text - actually
 invoke the tool with the real symbol, action, quantity (use 0 for hold),
-price, and a one-sentence reasoning. A decision without an actual tool
-call is incomplete and incorrect, even when the decision is to hold.
+the real price from STEP 2, and a one-sentence reasoning. A decision
+without an actual tool call is incomplete and incorrect, even when the
+decision is to hold.
 
-Note: the trade tool independently re-validates buy/sell trades against
-risk limits and will reject them if actually too large - but you should
-still always propose the correct, already-approved quantity. Hold
-decisions are simply logged for history and never rejected.
+Note: the trade tool independently re-validates both the risk limits
+AND the price against the live market before executing - it will reject
+a trade whose price doesn't match reality, so always propose the real,
+already-approved quantity and the real, stated price. Hold decisions are
+simply logged for history and never rejected.
 
-STEP 3: After calling the tool, write your final response ending with:
+STEP 4: After calling the tool, write your final response ending with:
 "DECISION: buy <qty> <symbol> @ <price>" or
 "DECISION: sell <qty> <symbol> @ <price>" or
 "DECISION: hold <symbol>"
 """,
         mcp_servers=[portfolio_trade_mcp_server],
     )
+    
