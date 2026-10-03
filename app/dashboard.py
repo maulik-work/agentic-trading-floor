@@ -138,7 +138,7 @@ with st.sidebar:
             width="stretch",
         )
 
-    if st.button("Reset Portfolio", help=f"Deletes '{profile_id}' history and resets to ₹1,00,000 cash"):
+    if st.button("Reset Portfolio", help=f"Deletes '{profile_id}' history and resets to ₹5,00,000 cash"):
         path = profile_file_path(profile_id)
         if os.path.exists(path):
             os.remove(path)
@@ -219,7 +219,8 @@ if "last_result" in st.session_state:
 
 st.divider()
 st.caption(
-    " Paper trading demo only. Not financial advice. Research signal is based on "
-    "5-day price history and recent news headlines - intentionally simplified for "
-    "this project; see README for details."
-        )
+    " Paper trading demo only. Not financial advice. Research signal combines "
+    "price trend (50/200-day moving averages), momentum (RSI-14, volume), "
+    "fundamentals, performance vs. NIFTY 50, and recent news - intentionally "
+    "simplified for this project; see README for details."
+            )
