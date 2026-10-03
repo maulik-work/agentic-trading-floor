@@ -174,6 +174,30 @@ def get_current_price(symbol: str) -> dict:
         return {"error": str(e)}
 
 
+def _price_history_fast_info_fallback(symbol: str, period: str) -> dict:
+    """
+    ticker.history() hits the same heavy, easily-rate-limited Yahoo
+    endpoint as ticker.info. When it's exhausted and there's no stale
+    cache to fall back on (e.g. the first time this session has asked
+    about this symbol), this gives the agent SOMETHING instead of a
+    flat error - fast_info's year-high/year-low come from a lighter
+    endpoint and often survive when the heavier one doesn't. No daily
+    breakdown is available this way, so recent_history comes back empty.
+    """
+    fast = yf.Ticker(symbol).fast_info
+    high = fast.get("yearHigh") or fast.get("year_high")
+    low = fast.get("yearLow") or fast.get("year_low")
+    return {
+        "symbol": symbol,
+        "period": period,
+        "52w_high": safe(high),
+        "52w_low": safe(low),
+        "recent_days_count": 0,
+        "recent_history": [],
+        "partial": True,
+    }
+
+
 @mcp.tool()
 def get_price_history(symbol: str, period: str = "1mo") -> dict:
     """
@@ -214,6 +238,13 @@ def get_price_history(symbol: str, period: str = "1mo") -> dict:
             }
 
         return _with_cache_and_retry("get_price_history", f"{symbol}:{period}", fetch)
+    except YFRateLimitError:
+        try:
+            fallback = _price_history_fast_info_fallback(symbol, period)
+            _write_cache("get_price_history", f"{symbol}:{period}", fallback)
+            return fallback
+        except Exception as e:
+            return {"error": f"Price history unavailable (rate-limited): {e}"}
     except Exception as e:
         return {"error": str(e)}
 
@@ -381,4 +412,4 @@ def get_market_comparison(symbol: str) -> dict:
 
 if __name__ == "__main__":
     mcp.run()
-      
+          
