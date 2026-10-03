@@ -224,6 +224,10 @@ def _fast_info_fallback(symbol: str) -> dict:
         "market_cap": safe(fast.get("marketCap") or fast.get("market_cap")),
         "pe_ratio": None,
         "currency": safe(fast.get("currency")),
+        "revenue_growth_yoy": None,
+        "earnings_growth_yoy": None,
+        "debt_to_equity": None,
+        "return_on_equity": None,
         "partial": True,  # tells the dashboard this came from the fallback
     }
 
@@ -248,6 +252,17 @@ def get_company_info(symbol: str) -> dict:
                 "market_cap": safe(info.get("marketCap")),
                 "pe_ratio": safe(info.get("trailingPE")),
                 "currency": safe(info.get("currency")),
+                # These four were being asked for by the Research Agent's
+                # prompt but never actually fetched here - that's the real
+                # reason they always showed "N/A", on every stock, every
+                # run. yfinance has all four in ticker.info; Yahoo simply
+                # doesn't report every field for every company, so None
+                # here is a genuine "not disclosed by this company", not
+                # a bug - whereas before, it was ALWAYS None for everyone.
+                "revenue_growth_yoy": safe(info.get("revenueGrowth")),
+                "earnings_growth_yoy": safe(info.get("earningsGrowth")),
+                "debt_to_equity": safe(info.get("debtToEquity")),
+                "return_on_equity": safe(info.get("returnOnEquity")),
             }
 
         return _with_cache_and_retry("get_company_info", symbol, fetch)
@@ -354,4 +369,3 @@ def get_market_comparison(symbol: str) -> dict:
 
 if __name__ == "__main__":
     mcp.run()
-  
