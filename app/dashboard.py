@@ -166,6 +166,7 @@ STAGE_LABELS = {
 if run_clicked and symbol:
     async def run_and_track(status_box):
         final_result = None
+        invalid = None
         async for event in run_pipeline_stream(symbol, profile_id=profile_id):
             if event["event"] == "stage_start":
                 status_box.update(label=STAGE_LABELS[event["stage"]], state="running")
@@ -173,15 +174,27 @@ if run_clicked and symbol:
                 st.write(f" {event['stage'].capitalize()} done")
             elif event["event"] == "complete":
                 final_result = event["result"]
-        return final_result
+            elif event["event"] == "invalid_symbol":
+                # Caught before any agent ran - see pipeline.py's
+                # looks_like_a_symbol() / symbol_has_market_data(). No
+                # LLM calls were spent on this, so there's nothing to
+                # show in the Research/Risk/Trader tabs.
+                invalid = event["reason"]
+        return final_result, invalid
 
     with st.status("Starting pipeline...", expanded=True) as status_box:
         try:
-            result = asyncio.run(run_and_track(status_box))
+            result, invalid_reason = asyncio.run(run_and_track(status_box))
         except Exception as e:
             status_box.update(label="Pipeline failed", state="error")
             st.error(f"Pipeline failed: {e}")
             st.stop()
+
+        if invalid_reason:
+            status_box.update(label="Couldn't run analysis", state="error")
+            st.warning(invalid_reason)
+            st.stop()
+
         status_box.update(label=f"Analysis complete for {result['symbol']}", state="complete")
 
     # Store the result and force a fresh script run - this is what makes
@@ -223,4 +236,5 @@ st.caption(
     "price trend (50/200-day moving averages), momentum (RSI-14, volume), "
     "fundamentals, performance vs. NIFTY 50, and recent news - intentionally "
     "simplified for this project; see README for details."
-            )
+        )
+        
