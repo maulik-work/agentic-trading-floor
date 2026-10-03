@@ -69,6 +69,32 @@ local_model_settings = ModelSettings(
     # Second layer of protection: hard-cap how much any single
     # response can generate, so even a verbose answer can't blow
     # through the per-minute output limit on its own.
+    # Used by Risk and Trader - both produce one short paragraph, so
+    # 800 tokens is comfortable headroom even with some reasoning
+    # overhead eating into the same budget.
     max_tokens=800,
-)     
- 
+)
+
+# Research gets its own, slightly larger budget. It calls up to 7 tools
+# and then has to synthesize a ~300-word, 6-section summary - real
+# content, not counting the internal reasoning tokens that "low"
+# reasoning_effort still generates and that count against this same cap.
+# On a harder symbol (sparse data, more tool back-and-forth), 800 tokens
+# could be consumed entirely by reasoning before any visible answer text
+# gets written, producing an empty-looking Research output with no
+# error - that's the likely cause of "the Research tab was just blank".
+#
+# This is a genuine trade-off, not a free fix: max_tokens is a RESERVED
+# completion budget that counts toward Groq's per-request token ceiling
+# (the same 8000 TPM limit that caused the earlier "Request too large"
+# error on this exact agent). Going too high here could reintroduce
+# that error. 1100 is a deliberately modest bump from 800, not a jump
+# to 1600+ - if Research still truncates on some symbols after this,
+# the better fix is trimming what the tools send back further (we
+# already cut get_price_history down to 10 days for this reason), not
+# keeps raising this number.
+research_model_settings = ModelSettings(
+    extra_body={"reasoning_effort": "low"},
+    max_tokens=1100,
+)
+
