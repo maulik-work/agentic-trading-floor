@@ -253,4 +253,3 @@ st.caption(
     "simplified for this project; see README for details."
         )
 
-        
