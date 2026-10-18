@@ -217,17 +217,32 @@ if "last_result" in st.session_state:
     result = st.session_state.last_result
     tab1, tab2, tab3 = st.tabs([" Research", " Risk Check", " Trader Decision"])
 
+    # The underlying model (Groq's gpt-oss) occasionally returns a blank
+    # final message instead of real text - pipeline.py's _run_with_retry
+    # already retries that automatically, but if it's still empty after
+    # every retry, show that plainly instead of an unexplained blank tab
+    # (which is exactly what used to happen here).
+    def _render_stage(label, text):
+        if (text or "").strip():
+            st.markdown(text)
+        else:
+            st.warning(
+                f"The {label} agent returned an empty response even after "
+                "retrying - this is a known quirk of the hosted model, not a "
+                "crash. Try running the analysis again."
+            )
+
     with tab1:
-        st.markdown(result["research"])
+        _render_stage("Research", result["research"])
 
     with tab2:
-        st.markdown(result["risk"])
+        _render_stage("Risk", result["risk"])
 
     with tab3:
-        st.markdown(result["trader"])
+        _render_stage("Trader", result["trader"])
         if "DECISION: hold" in result["trader"]:
             st.info("No trade was executed - decision was to hold.")
-        else:
+        elif result["trader"]:
             st.success("Trade processed - portfolio updated in the sidebar.")
 
 st.divider()
@@ -237,4 +252,5 @@ st.caption(
     "fundamentals, performance vs. NIFTY 50, and recent news - intentionally "
     "simplified for this project; see README for details."
         )
+
         
