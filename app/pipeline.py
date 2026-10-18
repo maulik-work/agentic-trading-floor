@@ -73,32 +73,49 @@ def looks_like_a_symbol(normalized_symbol: str) -> bool:
     return bool(_SYMBOL_SHAPE_RE.match(normalized_symbol))
 
 
-def symbol_has_market_data(symbol: str) -> bool:
+def symbol_has_market_data(symbol: str, attempts: int = 3) -> bool:
     """
-    One cheap, un-cached, un-retried existence probe: does yfinance
-    return ANY price data for this symbol at all? Run once, up front,
-    before launching the full Research -> Risk -> Trader pipeline.
+    A cheap existence probe: does yfinance return ANY price data for this
+    symbol at all? Run once, up front, before launching the full
+    Research -> Risk -> Trader pipeline.
 
     Important honesty check on this function: it CANNOT perfectly tell
     "this symbol doesn't exist" apart from "Yahoo happens to be
     rate-limited right this second" - both look like empty data from a
-    single call. That ambiguity is fundamental to scraping yfinance,
-    not something this function can fully solve. What it DOES do is
-    stop obviously-bogus input (a typo, a non-ticker string that still
-    passed the shape check, e.g. "ZZZZZ.NS") from burning three LLM
-    calls and reaching the price-verification gate in record_trade(),
-    where a nonexistent symbol and a real outage are indistinguishable
-    for the opposite reason (both return None, and that gate is
-    deliberately permissive about None so a real outage doesn't block
-    every trade). Catching bad input HERE, before the pipeline starts,
-    is strictly better than hoping a downstream gate catches it.
+    single call. That ambiguity is fundamental to scraping yfinance, not
+    something this function can fully solve.
+
+    It used to be a single un-retried call, which was the actual bug
+    behind a real production report: COCHINSHIP.NS (a real, listed NSE
+    symbol) got rejected as "could not find any market data" - not
+    because the symbol was bad, but because one yfinance round-trip
+    happened to fail (Yahoo rate-limiting, or the cookie/crumb handshake
+    yfinance does internally having a bad moment). A single flaky call
+    was indistinguishable from a genuinely nonexistent symbol, so it
+    now retries a couple of times with a short backoff before giving up
+    - cheap insurance against rejecting a real symbol over one bad
+    network blip, while a truly nonexistent symbol (e.g. "ZZZZZ.NS")
+    still correctly fails every attempt and gets rejected.
+
+    Existence is still a best-effort check only - a real outage lasting
+    longer than these retries will still look like "doesn't exist" to
+    this function. That's a known, documented limit, not something a
+    front-door probe can fully close.
     """
-    try:
-        import yfinance as yf
-        hist = yf.Ticker(symbol).history(period="5d")
-        return not hist.empty
-    except Exception:
-        return False
+    import time
+
+    import yfinance as yf
+
+    for attempt in range(1, attempts + 1):
+        try:
+            hist = yf.Ticker(symbol).history(period="5d")
+            if not hist.empty:
+                return True
+        except Exception:
+            pass
+        if attempt < attempts:
+            time.sleep(1.0 * attempt)
+    return False
 
 
 def profile_file_path(profile_id: str = DEFAULT_PROFILE_ID) -> str:
@@ -325,4 +342,4 @@ async def run_pipeline(symbol: str, trade_qty: int = DEFAULT_TRADE_QTY, profile_
     return result
 
 
-    
+            
