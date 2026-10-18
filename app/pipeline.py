@@ -134,20 +134,47 @@ def _is_tool_leak_bug(err: openai.BadRequestError) -> bool:
 
 async def _run_with_retry(run_fn, max_attempts: int = 3):
     """
-    Runs an agent call, automatically retrying if it hits the known
-    tool-leak bug above. Any other error - a real problem - is raised
-    immediately, not retried.
+    Runs an agent call, automatically retrying on two distinct failure
+    shapes seen in production with Groq's gpt-oss models:
+
+      1. The known tool-leak bug - the model's internal reasoning channel
+         leaks through as an invalid fake tool call, which the SDK raises
+         as an openai.BadRequestError (caught below).
+
+      2. A quieter variant of the same underlying quirk: the call
+         succeeds (no exception at all) but the model's final message is
+         empty. The SDK has nothing to raise here - from its point of
+         view the run completed normally - so this can't be caught by
+         the except block. It has to be checked explicitly on the
+         result, which is why this function (not the except clause) is
+         the only place that can catch it. Left unhandled, this was the
+         real bug reported in production: the Research tab rendering as
+         a silent blank, because result.final_output was "".
+
+    Any other error - a real problem - is raised immediately, not retried.
     """
     last_error = None
+    last_empty_result = None
     for attempt in range(1, max_attempts + 1):
         try:
-            return await run_fn()
+            result = await run_fn()
         except openai.BadRequestError as e:
             if _is_tool_leak_bug(e) and attempt < max_attempts:
                 last_error = e
                 await asyncio.sleep(1.5 * attempt)
                 continue
             raise
+        else:
+            if (result.final_output or "").strip():
+                return result
+            last_empty_result = result
+            if attempt < max_attempts:
+                await asyncio.sleep(1.5 * attempt)
+                continue
+            # Exhausted every retry and it's still empty - return it as-is
+            # rather than raising, so the caller (the dashboard) can show
+            # a clear message instead of crashing the whole pipeline.
+            return last_empty_result
     raise last_error
 
 
@@ -296,5 +323,6 @@ async def run_pipeline(symbol: str, trade_qty: int = DEFAULT_TRADE_QTY, profile_
         if event["event"] == "complete":
             result = event["result"]
     return result
+
 
     
